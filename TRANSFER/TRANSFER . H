@@ -1,0 +1,27 @@
+#ifndef TRANSPORT_H
+#define TRANSPORT_H
+
+#include <stddef.h>
+#include "packet.h"
+
+// Define the transport "interface" using function pointers
+typedef struct transport_ops {
+    // Opens the connection. Returns a handle or socket descriptor.
+    // For a server, address is NULL. For a client, it's the server address.
+    int (*open)(const char* address, int port);
+
+    // Sends a packet.
+    int (*send)(int handle, const packet_t* packet);
+
+    // Receives a packet.
+    int (*receive)(int handle, packet_t* packet);
+
+    // Closes the connection.
+    void (*close)(int handle);
+} transport_ops_t;
+
+// Function to be implemented by the main application logic
+void send_file(const char* filepath, const char* address, int port, transport_ops_t* transport);
+void receive_file(const char* filepath, int port, transport_ops_t* transport);
+
+#endif // TRANSPORT_H
