@@ -1,0 +1,118 @@
+#include <stdio.h>
+#include "checksum.h"
+#include "encryption.h"
+#include "file_io.h"
+#include "packet.h"
+#include "transport.h"
+
+/* Demo AES-128 key/IV — must match packetizer/depacketizer or those tools won't interoperate. */
+static uint8_t s_demo_key[16] = {
+    0x2b, 0x7e, 0x15, 0x16, 0x28, 0xae, 0xd2, 0xa6,
+    0xab, 0xf7, 0x15, 0x88, 0x09, 0xcf, 0x4f, 0x3c
+};
+static uint8_t s_demo_iv[16] = {
+    0x00, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07,
+    0x08, 0x09, 0x0a, 0x0b, 0x0c, 0x0d, 0x0e, 0x0f
+};
+
+static void send_eof_packet(transport_ops_t* transport, int conn_handle, packet_t* pkt, int* next_seq) {
+    pkt->sequence_number = (*next_seq)++;
+    pkt->data_size = 0;
+    pkt->checksum = 0;
+    encrypt_packet(pkt, s_demo_key, s_demo_iv);
+    (void)transport->send(conn_handle, pkt);
+}
+
+void send_file(const char* filepath, const char* address, int port, transport_ops_t* transport) {
+    FILE* in = fopen(filepath, "rb");
+    if (!in) {
+        fprintf(stderr, "Can't open '%s' for reading: ", filepath);
+        perror(NULL);
+        return;
+    }
+
+    int conn_handle = transport->open(address, port);
+    if (conn_handle < 0) {
+        fprintf(stderr, "Couldn't connect to %s:%d (is the receiver listening on that port?).\n", address, port);
+        fclose(in);
+        return;
+    }
+
+    packet_t pkt;
+    int next_seq = 0;
+    int payload_bytes;
+
+    printf("Transferring file '%s' to %s:%d...\n", filepath, address, port);
+
+    while ((payload_bytes = read_file_chunk(in, &pkt)) > 0) {
+        pkt.sequence_number = next_seq++;
+
+        /* Checksum plaintext, then encrypt — receiver does the reverse. */
+        pkt.checksum = calculate_checksum(&pkt);
+        encrypt_packet(&pkt, s_demo_key, s_demo_iv);
+
+        if (transport->send(conn_handle, &pkt) < 0) {
+            fprintf(stderr, "send() died on packet seq=%u (payload %d bytes)\n",
+                    (unsigned)pkt.sequence_number, payload_bytes);
+            break;
+        }
+
+        printf("Sent packet %d (%d bytes payload, checksum: %u)\n",
+               pkt.sequence_number, payload_bytes, (unsigned)pkt.checksum);
+    }
+
+    send_eof_packet(transport, conn_handle, &pkt, &next_seq);
+
+    printf("File transfer complete.\n");
+    transport->close(conn_handle);
+    fclose(in);
+}
+
+void receive_file(const char* filepath, int port, transport_ops_t* transport) {
+    FILE* out = fopen(filepath, "wb");
+    if (!out) {
+        fprintf(stderr, "Can't open '%s' for writing: ", filepath);
+        perror(NULL);
+        return;
+    }
+
+    int conn_handle = transport->open(NULL, port);
+    if (conn_handle < 0) {
+        fprintf(stderr, "Listen/accept on port %d failed (port already taken?).\n", port);
+        fclose(out);
+        return;
+    }
+
+    packet_t pkt;
+    printf("Receiving file into '%s' on port %d...\n", filepath, port);
+
+    while (transport->receive(conn_handle, &pkt) > 0) {
+        decrypt_packet(&pkt, s_demo_key, s_demo_iv);
+
+        if (pkt.data_size == 0) {
+            printf("End of file packet received.\n");
+            break;
+        }
+
+        uint32_t recomputed = calculate_checksum(&pkt);
+        if (recomputed != pkt.checksum) {
+            fprintf(stderr,
+                    "checksum mismatch on seq=%u: got %u, packet header says %u (file may be garbled)\n",
+                    (unsigned)pkt.sequence_number, (unsigned)recomputed, (unsigned)pkt.checksum);
+        }
+
+        int written = write_file_chunk(out, &pkt);
+        if (written != (int)pkt.data_size) {
+            fprintf(stderr, "short write on seq=%u (%d bytes, wanted %u)\n",
+                    (unsigned)pkt.sequence_number, written, (unsigned)pkt.data_size);
+            break;
+        }
+
+        printf("Received packet %d (%d bytes payload, checksum ok: %u)\n",
+               pkt.sequence_number, pkt.data_size, (unsigned)recomputed);
+    }
+
+    printf("File reception complete.\n");
+    transport->close(conn_handle);
+    fclose(out);
+}
