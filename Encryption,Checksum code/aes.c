@@ -1,10 +1,8 @@
-#include <string.h> // CBC mode, for memset
+#include <string.h> 
 #include "aes.h"
 
-/*****************************************************************************/
-/* Defines:                                                                  */
-/*****************************************************************************/
-// The number of columns comprising a state in AES. This is a constant in AES. Value=4
+
+// The number of columns comprising a state in AES.
 #define Nb 4
 
 #if defined(AES256) && (AES256 == 1)
@@ -14,17 +12,15 @@
     #define Nk 6
     #define Nr 12
 #else
-    #define Nk 4        // The number of 32 bit words in a key.
-    #define Nr 10       // The number of rounds in AES Cipher.
+    #define Nk 4        // number of 32 bit words in a key.
+    #define Nr 10       //  number of rounds in AES Cipher.
 #endif
 
 #ifndef MULTIPLY_AS_A_FUNCTION
   #define MULTIPLY_AS_A_FUNCTION 0
 #endif
 
-/*****************************************************************************/
-/* Private variables:                                                        */
-/*****************************************************************************/
+
 // state - array holding the intermediate results during decryption.
 typedef uint8_t state_t[4][4];
 
@@ -134,7 +130,7 @@ static void KeyExpansion(uint8_t* RoundKey, const uint8_t* Key)
   }
 }
 
-void AES_init_ctxt(struct AES_ctxt* ctx, const uint8_t* key)
+void AES_initial_ctxt(struct AES_ctxt* ctx, const uint8_t* key)
 {
   KeyExpansion(ctx->RoundKey, key);
 }
@@ -142,11 +138,11 @@ void AES_init_ctxt(struct AES_ctxt* ctx, const uint8_t* key)
 void AES_initial_ctxt_init_v(struct AES_ctxt* ctx, const uint8_t* key, const uint8_t* iv)
 {
   KeyExpansion(ctx->RoundKey, key);
-  memcpy (ctx->Iv, iv, AES_BLOCKLEN);
+  memcpy (ctx->Init_vect, iv, AES_BLOCKLEN);
 }
 void AES_ctxt_set_init_v(struct AES_ctxt* ctx, const uint8_t* iv)
 {
-  memcpy (ctx->Iv, iv, AES_BLOCKLEN);
+  memcpy (ctx->Init_vect, iv, AES_BLOCKLEN);
 }
 #endif
 
@@ -365,7 +361,7 @@ static void XorWithIv(uint8_t* buf, const uint8_t* Iv)
 void AES_CBC_encrypt_buffer(struct AES_ctxt *ctx, uint8_t* buf, size_t length)
 {
   size_t i;
-  uint8_t *Iv = ctx->Iv;
+  uint8_t *Iv = ctx->Init_vect;
   for (i = 0; i < length; i += AES_BLOCKLEN)
   {
     XorWithIv(buf, Iv);
@@ -373,7 +369,7 @@ void AES_CBC_encrypt_buffer(struct AES_ctxt *ctx, uint8_t* buf, size_t length)
     Iv = buf;
     buf += AES_BLOCKLEN;
   }
-  memcpy(ctx->Iv, Iv, AES_BLOCKLEN);
+  memcpy(ctx->Init_vect, Iv, AES_BLOCKLEN);
 }
 
 void AES_CBC_decrypt_buffer(struct AES_ctxt* ctx, uint8_t* buf, size_t length)
@@ -384,8 +380,8 @@ void AES_CBC_decrypt_buffer(struct AES_ctxt* ctx, uint8_t* buf, size_t length)
   {
     memcpy(storeNextIv, buf, AES_BLOCKLEN);
     InvCipher((state_t*)buf, ctx->RoundKey);
-    XorWithIv(buf, ctx->Iv);
-    memcpy(ctx->Iv, storeNextIv, AES_BLOCKLEN);
+    XorWithIv(buf, ctx->Init_vect);
+    memcpy(ctx->Init_vect, storeNextIv, AES_BLOCKLEN);
     buf += AES_BLOCKLEN;
   }
 
@@ -406,17 +402,17 @@ void AES_CTR_xcrypt_buffer(struct AES_ctxt* ctx, uint8_t* buf, size_t length)
     if (bi == AES_BLOCKLEN) 
     {
       
-      memcpy(buffer, ctx->Iv, AES_BLOCKLEN);
+      memcpy(buffer, ctx->Init_vect, AES_BLOCKLEN);
       Cipher((state_t*)buffer,ctx->RoundKey);
 
       for (bi = (AES_BLOCKLEN - 1); bi >= 0; --bi)
       {
-        if (ctx->Iv[bi] == 255)
+        if (ctx->Init_vect[bi] == 255)
 	{
-          ctx->Iv[bi] = 0;
+          ctx->Init_vect[bi] = 0;
           continue;
         } 
-        ctx->Iv[bi] += 1;
+        ctx->Init_vect[bi] += 1;
         break;   
       }
       bi = 0;
@@ -427,3 +423,4 @@ void AES_CTR_xcrypt_buffer(struct AES_ctxt* ctx, uint8_t* buf, size_t length)
 }
 
 #endif 
+
