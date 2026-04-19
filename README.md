@@ -31,8 +31,7 @@ make
 Manual compile:
 
 ```bash
-gcc -Iinclude -Wall -g src/main.c src/file_io.c src/transport_socket.c src/packetizer.c src/depacketizer.c src/encryption.c src/transfer.c src/checksum.c lib/aes.c -o file_transfer
-```
+gcc -Iinclude -Wall -g source code/file_io.c source code/main.c source code/packetizer.c source code/transfer.c source code/trasport_socket.c source code/depacketizer.c source code/encryption.c source code/checksum.c source code/aes.c
 
 ## How to Use
 
