@@ -67,17 +67,17 @@ Example:
 
 # Member Contributions
 
-“M Megha Syam Harivardhan” - Lead, CLI, integration, build (main.c, Makefile, README, demo, E2E tests).  
+M Megha Syam Harivardhan - Lead, CLI, integration, build (main.c, Makefile, README, demo, E2E tests).  
 
 
-“Swastik Chatterjee” - Networking (transport.h, transport_socket.c, socket loops,       partial‑send write‑up).  
+Swastik Chatterjee - Networking (transport.h, transport_socket.c, socket loops,       partial‑send write‑up).  
 
 
- “Dharshan SS” - Transfer logic (transfer.c, chunk flow, EOF).  
+ Dharshan SS - Transfer logic (transfer.c, chunk flow, EOF).  
 
 
- “Sreehari EH” - Crypto + integrity (encryption.c/h, checksum.c/h, AES‑128‑CTR + IV tweak).  
+ Sreehari EH - Crypto + integrity (encryption.c/h, checksum.c/h, AES‑128‑CTR + IV tweak).  
 
 
-“NV Charan Teja” - File I/O + packetize pipeline (file_io.c/h, packetizer.c, depacketizer.c, copy mode).
+NV Charan Teja - File I/O + packetize pipeline (file_io.c/h, packetizer.c, depacketizer.c, copy mode).
 
